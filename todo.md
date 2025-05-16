@@ -1,0 +1,1 @@
+- [] TODO Shrani velikost oken in sirino stolpcev na nastavitve.
