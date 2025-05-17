@@ -1,8 +1,8 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QComboBox, QWidget,
-                             QVBoxLayout, QCompleter)
+                             QVBoxLayout, QCompleter, QLineEdit)
 from PyQt6.QtSql import QSqlQueryModel, QSqlQuery, QSqlDatabase
-from PyQt6.QtCore import Qt, QStringListModel, QTimer
+from PyQt6.QtCore import Qt, QStringListModel, QTimer, QModelIndex
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
 
 
@@ -21,6 +21,9 @@ class LargeDataComboBox(QWidget):
         self.combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.combo.setCurrentIndex(-1)
         self.layout.addWidget(self.combo)
+        self.layout.addWidget(QLineEdit())
+        self.layout.addWidget(QLineEdit())
+        self.layout.addWidget(QLineEdit())
         self.setWindowTitle('Large Dataset ComboBox')
 
     def setup_database(self):
@@ -46,13 +49,16 @@ class LargeDataComboBox(QWidget):
 
     def setup_completer(self):
         # Use a custom completer with delayed filtering
-        self.completer_model = QStringListModel()
+        # self.completer_model = QStringListModel()
+        self.completer_model = QStandardItemModel()
         self.completer = QCompleter()
+        self.completer.setCompletionColumn(0)
         self.completer.setModel(self.completer_model)
         self.completer.setFilterMode(Qt.MatchFlag.MatchContains)
         self.completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         self.completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         self.completer.setCompletionRole(Qt.ItemDataRole.DisplayRole)
+        self.completer.activated[QModelIndex].connect(self.do_complete)
         self.combo.setCompleter(self.completer)
         line_edit  = self.combo.lineEdit()
         # Connect signals for dynamic filtering
@@ -69,27 +75,39 @@ class LargeDataComboBox(QWidget):
     def filter_items(self):
         """Query only matching items from database"""
         search_text = self.combo.currentText()
-
+        self.completer_model.clear()
         if len(search_text) < 1:
-            self.completer_model.setStringList([])
             return
 
         query = QSqlQuery()
-        query.prepare("SELECT naziv FROM drzava WHERE naziv ILIKE ? LIMIT 50")
+        query.prepare("SELECT naziv, id FROM drzava WHERE naziv ILIKE ? LIMIT 50")
         query.addBindValue(f"{search_text}%")
-        model = QStandardItemModel()
+        num_results = 0
         if query.exec():
             results = []
             while query.next():
-                print('Adding', query.value(0))
-                results.append(query.value(0))
+                num_results += 1
+                item = QStandardItem(query.value(0))
+                item.setData(query.value(1), Qt.ItemDataRole.UserRole)
+                self.completer_model.appendRow(item)
+                # results.append(query.value(0))
             # Update ONLY the completer model
-            self.completer_model.setStringList(results)
-            if results:
+            # self.completer_model.setStringList(results)
+
+            if num_results:
                 self.completer.complete()
             else:
                 self.completer.popup().hide()
 
+    def do_complete(self, model_index):
+        """
+        Ko izberem prek completerja, si zapomnim database id
+        :return:
+        """
+        item = self.completer_model.item(model_index.row())
+        record_id = item.data(Qt.ItemDataRole.UserRole)
+        print("Selected ID:", item.data(Qt.ItemDataRole.UserRole))
+        self.combo.setProperty("record_id", record_id)
 
 if __name__ == '__main__':
     from PyQt6.QtSql import QSqlDatabase
