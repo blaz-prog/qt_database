@@ -29,7 +29,7 @@ class DBLineEdit(QLineEdit):
             self.setText("")
 
     def dataentry_finished(self):
-        search_results = self.model.query_data(self.text(), exact=True)
+        search_results = self.model.query_data(self.text())
         if len(search_results)  == 1:
             rec = search_results[0]
             self.db_value = rec.id_get()

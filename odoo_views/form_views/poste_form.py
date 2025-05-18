@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import  (QLineEdit,
                              QFormLayout)
 
-from app_models.app_tables import Posta
+from app_models import Posta
 from sqlalchemy.orm import Session
 from postgresql_engine.engine import engine
 from .generic_form import RecordEditForm

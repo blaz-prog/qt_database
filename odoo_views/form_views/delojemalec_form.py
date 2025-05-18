@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (QWidget, QTableView, QVBoxLayout, QHBoxLayout,
 
 
 from app_models.app_tables import Delojemalec
+from app_models import Posta
 from odoo_views.posta import PostaModel
 from odoo_views.drzava import DrzavaModel
 from datetime import datetime
@@ -13,7 +14,10 @@ from sqlalchemy.orm import Session
 from postgresql_engine.engine import engine
 from generic_mvc_alchemy.generic_lookup import DBLineEdit
 from generic_mvc_alchemy.db_picker import DbPicker
+from generic_mvc_alchemy.lineedit_completer import EditCompleter
 from odoo_views.completers.db_completers import PosteCompleter, DrzaveCompleter
+from common import resources
+
 
 class DelojemalecForm(QDialog):
 
@@ -31,7 +35,7 @@ class DelojemalecForm(QDialog):
         self.le_ime = QLineEdit()
         self.le_priimek = QLineEdit()
         self.le_ulica = QLineEdit()
-        self.le_posta = DBLineEdit(PostaModel, PosteCompleter)
+        self.le_posta = EditCompleter(Posta)
         self.le_drzava = DBLineEdit(DrzavaModel, DrzaveCompleter)
         self.le_datum_rojstva = QLineEdit()
         self.le_davcna_stevilka = QLineEdit()
@@ -47,7 +51,6 @@ class DelojemalecForm(QDialog):
         controls_layout.addWidget(self.btn_undo)
         controls_layout.addStretch()
         layout_left = QFormLayout()
-        layout_left.addRow("Dbpicker", self.db_picker)
         layout_left.addRow("Ime", self.le_ime)
         layout_left.addRow("Priimek", self.le_priimek)
         layout_left.addRow("Ulica", self.le_ulica)

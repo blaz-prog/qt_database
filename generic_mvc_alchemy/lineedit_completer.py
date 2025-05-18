@@ -4,14 +4,19 @@ from PyQt6.QtWidgets import (QApplication, QFormLayout, QWidget,
 from PyQt6.QtSql import  QSqlQuery
 from PyQt6.QtCore import Qt, QTimer, QModelIndex, pyqtSignal
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
+from app_models.app_tables import Drzava, Delojemalec
+from app_models import Posta
+
 
 class EditCompleter(QLineEdit):
     pk_changed = pyqtSignal(int)
-    def __init__(self, parent=None):
+    def __init__(self, alchemy_model, parent=None):
         super().__init__(parent)
         # to hold  db_id of record
         self.db_id = None
         self._completer_activated = False
+        self.num_of_startup_chars = 1
+        self.alchemy_model = alchemy_model
         # define instance attributes
         self.completer = QCompleter()
         self.completer_model = QStandardItemModel()
@@ -45,32 +50,35 @@ class EditCompleter(QLineEdit):
         search_text = self.text()
         self.completer_model.clear()
         self._completer_activated = False
-        if len(search_text) < 1:
+        if len(search_text) < self.num_of_startup_chars:
             return
 
         num_results = 0
-        query = self.get_items(search_text)
-        if query.exec():
-            while query.next():
-                num_results += 1
-                item = QStandardItem(query.value(0))
-                item.setData(query.value(1), Qt.ItemDataRole.UserRole)
-                self.completer_model.appendRow(item)
-                # results.append(query.value(0))
+        query_result = self.get_items(search_text)
+        for result in query_result:
+            num_results += 1
+            item = QStandardItem(result[0])
+            item.setData(result[1], Qt.ItemDataRole.UserRole)
+            self.completer_model.appendRow(item)
+            # results.append(query.value(0))
             if num_results:
                 self.completer.complete()
             else:
                 self.completer.popup().hide()
+        # stara koda, ob priliki izbrisi
+        # query = self.get_items(search_text)
+        # if query.exec():
+        #     while query.next():
+        #         num_results += 1
+        #         item = QStandardItem(query.value(0))
+        #         item.setData(query.value(1), Qt.ItemDataRole.UserRole)
+        #         self.completer_model.appendRow(item)
+        #         # results.append(query.value(0))
+        #     if num_results:
+        #         self.completer.complete()
+        #     else:
+        #         self.completer.popup().hide()
 
-    def get_items(self, filter_text):
-        ''''
-        Mora vrniti query, ki ima v prvem stolpcu naziv
-        v drugem pa database id
-        '''
-        query = QSqlQuery()
-        query.prepare("SELECT naziv, id FROM drzava WHERE naziv ILIKE ? LIMIT 50")
-        query.addBindValue(f"{filter_text}%")
-        return query
 
 
     def text_changed(self, text):
@@ -81,38 +89,10 @@ class EditCompleter(QLineEdit):
         # ce sem izbral prek completerja ne iscem se enkrat
         if self._completer_activated:
             return
-
         entered_text = self.text()
-        num_records = 0
-        # preverim, ce je venseni text enolicen v bazi
-        # Ce obstaja samo en zapis za dolocen vnos potem postavim id
-        if self.get_number_of_matches(entered_text) == 1:
-            query = QSqlQuery()
-            query.prepare("SELECT id, naziv FROM drzava WHERE naziv = ?")
-            query.addBindValue(entered_text)
-            if query.exec() and query.next():
-                self.set_db_id(query.value(0))
-            else:
-                print(query.lastError().databaseText())
-        else:
-            self.set_db_id(None)
+        db_id = self.get_exact_match(entered_text)
+        self.set_db_id(db_id)
 
-    def get_number_of_matches(self, filter_text):
-        '''
-        return number of matches for entered text
-        :param filter_text:
-        :return:
-        '''
-        num_records = 0
-        query = QSqlQuery()
-        query.prepare("SELECT count(*) FROM drzava WHERE naziv = ?")
-        query.addBindValue(filter_text)
-        if query.exec() and query.next():
-            num_records = query.value(0)
-        else:
-            print(query.lastError().databaseText())
-
-        return num_records
 
     def set_db_id(self, value):
         self.db_id = value
@@ -129,17 +109,80 @@ class EditCompleter(QLineEdit):
         self.set_db_id(record_id)
         self._completer_activated = True
 
+    # **********************************************
+    # * Funkcije, ki so specificne za vsako tabelo *
+    # **********************************************
+    def get_number_of_matches(self, filter_text):
+        '''
+        return number of matches for entered text
+        :param filter_text:
+        :return:
+        '''
+        return self.alchemy_model.get_number_of_matches(filter_text)
+        # Skrita stara koda, ob priliki izbrisi
+        # num_records = 0
+        # query = QSqlQuery()
+        # query.prepare("SELECT count(*) FROM drzava WHERE naziv = ?")
+        # query.addBindValue(filter_text)
+        # if query.exec() and query.next():
+        #     num_records = query.value(0)
+        # else:
+        #     print(query.lastError().databaseText())
+
+        # return num_records
+
+    def get_exact_match(self, filter_text):
+        '''
+        Return exact match for filtered text
+        prej je potrebno preveriti ali je filter text
+        resnicno exact match
+        Ce ni exact match vrne None
+        :param filter_text:
+        :return:
+        '''
+        if self.get_number_of_matches(filter_text) != 1:
+            return None
+        return self.alchemy_model.get_exact_match(filter_text)
+        # Skrita stara koda, ob priliki izbrisi
+        # record_id = None
+        # query = QSqlQuery()
+        # query.prepare("SELECT id FROM drzava WHERE naziv = ?")
+        # query.addBindValue(filter_text)
+        # if query.exec() and query.next():
+        #     record_id = query.value(0)
+        # else:
+        #     print("Last query error", query.lastError().databaseText())
+        # print("Result of query next", query.next())
+        # return record_id
+
+    def get_items(self, filter_text):
+        ''''
+        Mora vrniti strukturo, ki ima v prvem stolpcu naziv
+        v drugem pa database id
+        '''
+        query_result = self.alchemy_model.get_matches(filter_text)
+        return query_result
+        # Skrita stara koda, ob priliki izbrisi
+        # query = QSqlQuery()
+        # query.prepare("SELECT naziv, id FROM drzava WHERE naziv ILIKE ? LIMIT 50")
+        # query.addBindValue(f"{filter_text}%")
+        # return query
+    # Konec funkcij, ki so specificne za vsako tabelo
+
+
 class MyApp(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.le_drzava = EditCompleter()
+        self.le_drzava = EditCompleter(Drzava)
+        self.le_posta = EditCompleter(Posta)
         self.lbl_drzava_id = QLabel()
         le_ime = QLineEdit()
         layout = QFormLayout()
         layout.addRow("Drzava", self.le_drzava)
         layout.addRow('Drzava id', self.lbl_drzava_id)
         layout.addRow("Ime drzavljana", le_ime)
+        layout.addRow("Posta", self.le_posta)
         self.pb_controla = QPushButton("Kontrola")
         layout.addRow("Kontrola id", self.pb_controla)
         self.pb_controla.clicked.connect(self.do_controla)

@@ -1,0 +1,12 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="icons">
+        <file alias="arrow.png">icons/arrow.png</file>
+        <file alias="arrow-180.png">icons/arrow-180.png</file>
+        <file alias="arrow-180.png">icons/arrow-180.png</file>
+        <file alias="form-view.png">icons/application-form.png</file>
+        <file alias="table-view.png">icons/application-list.png</file>
+        <file alias="add-record.png">icons/application-plus.png</file>
+        <file alias="delete-record.png">icons/application--minus.png</file>
+    </qresource>
+</RCC>

@@ -9,6 +9,7 @@ from app_models.app_tables import Delojemalec
 from datetime import datetime
 from sqlalchemy.orm import Session
 from postgresql_engine.engine import engine
+from common import resources
 
 class RecordEditForm(QDialog):
 
